@@ -215,6 +215,7 @@ model ReviewToken {
   createdAt      DateTime      @default(now())
 
   profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  review    Review?
 
   @@index([profileId])
   @@index([requestedById])
