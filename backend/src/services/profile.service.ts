@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { FastifyInstance } from 'fastify'
-import { Plan, ReviewStatus, VerificationStatus } from '../generated/prisma/client.js'
+import { Plan, ReviewStatus, Role, VerificationStatus } from '../generated/prisma/client.js'
 import { generateUniqueSlug } from '../utils/slug.js'
 import { ensurePlanLimit, profileRank } from '../utils/plans.js'
 import { saveWebpBuffer, deleteRelativeFile } from '../utils/storage.js'
@@ -36,7 +36,7 @@ export const searchProfilesSchema = z.object({
 
 export async function getPublicProfile(app: FastifyInstance, slug: string, ipHash?: string | null) {
   const profile = await app.prisma.profile.findFirst({
-    where: { slug, active: true },
+    where: { slug, active: true, user: { role: Role.USER } },
     include: {
       cities: true,
       photos: { orderBy: { sortOrder: 'asc' } },
@@ -62,12 +62,22 @@ export async function getPublicProfile(app: FastifyInstance, slug: string, ipHas
 export async function listProfiles(app: FastifyInstance, query: z.infer<typeof searchProfilesSchema>) {
   const where = {
     active: true,
+    user: { role: Role.USER },
     ...(query.city ? { city: { contains: query.city, mode: 'insensitive' as const } } : {}),
     ...(query.state ? { state: query.state.toUpperCase() } : {}),
     ...(typeof query.verified === 'boolean' ? { verified: query.verified } : {}),
     ...(query.type ? { type: query.type } : {}),
     ...(query.q ? { OR: [{ name: { contains: query.q, mode: 'insensitive' as const } }, { bio: { contains: query.q, mode: 'insensitive' as const } }] } : {}),
-    ...(query.specialty ? { specialties: { some: { specialty: { slug: query.specialty } } } } : {}),
+    ...(query.specialty ? {
+      specialties: {
+        some: {
+          OR: [
+            { specialty: { slug: query.specialty } },
+            { specialty: { name: { contains: query.specialty, mode: 'insensitive' as const } } },
+          ],
+        },
+      },
+    } : {}),
   }
 
   const all = await app.prisma.profile.findMany({

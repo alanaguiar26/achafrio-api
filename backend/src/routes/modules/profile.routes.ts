@@ -5,6 +5,10 @@ import { sendValidationError } from '../../utils/http.js'
 import { hashValue } from '../../utils/security.js'
 
 export const profileRoutes: FastifyPluginAsync = async (app) => {
+
+  app.get('/specialties', async () => {
+    return app.prisma.specialty.findMany({ orderBy: { name: 'asc' } })
+  })
   app.get('/list', async (request, reply) => {
     try {
       const query = searchProfilesSchema.parse(request.query)

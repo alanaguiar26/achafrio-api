@@ -1,7 +1,15 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { env } from '../../config/env.js'
 import { requireAuth } from '../../middlewares/auth.js'
 import { loginSchema, loginUser, refreshSession, registerSchema, registerUser } from '../../services/auth.service.js'
 import { sendValidationError } from '../../utils/http.js'
+
+const refreshCookieConfig = {
+  httpOnly: true,
+  sameSite: 'lax' as const,
+  path: '/',
+  secure: env.NODE_ENV === 'production',
+}
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post('/register', async (request, reply) => {
@@ -11,10 +19,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
       reply
         .setCookie('achafrio_refresh_token', tokens.refreshToken, {
-          httpOnly: true,
-          sameSite: 'lax',
-          path: '/',
-          secure: false,
+          ...refreshCookieConfig,
           expires: tokens.refreshExpiresAt,
         })
         .send({ accessToken: tokens.accessToken })
@@ -30,10 +35,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
       reply
         .setCookie('achafrio_refresh_token', tokens.refreshToken, {
-          httpOnly: true,
-          sameSite: 'lax',
-          path: '/',
-          secure: false,
+          ...refreshCookieConfig,
           expires: tokens.refreshExpiresAt,
         })
         .send({ accessToken: tokens.accessToken })
@@ -50,10 +52,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
       reply
         .setCookie('achafrio_refresh_token', tokens.refreshToken, {
-          httpOnly: true,
-          sameSite: 'lax',
-          path: '/',
-          secure: false,
+          ...refreshCookieConfig,
           expires: tokens.refreshExpiresAt,
         })
         .send({ accessToken: tokens.accessToken })
@@ -67,6 +66,23 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.get('/me', { preHandler: requireAuth }, async (request) => {
-    return app.prisma.user.findUnique({ where: { id: request.user.userId }, include: { profile: true } })
+    return app.prisma.user.findUnique({
+      where: { id: request.user.userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        profile: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            plan: true,
+            active: true,
+            verified: true,
+          },
+        },
+      },
+    })
   })
 }
